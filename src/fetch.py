@@ -57,8 +57,14 @@ def fetch_flusight(stamp):
     """Full FluSight target series, stored gzipped -- this is the modelling history."""
     raw = get(FLUSIGHT)
     path = os.path.join(SNAP, f"flusight_target_{stamp}.csv.gz")
-    with gzip.open(path, "wb") as f:
-        f.write(raw)
+    # mtime=0 so the output is byte-deterministic. gzip normally writes the
+    # compression time into its header, which makes identical data produce a
+    # different file on every run -- so git would report a change every week
+    # whether or not the data moved. With this, a diff means the data actually
+    # changed, which is exactly the signal the revision analysis needs.
+    with open(path, "wb") as fh:
+        with gzip.GzipFile(fileobj=fh, mode="wb", mtime=0) as gz:
+            gz.write(raw)
 
     rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8"))))
     us = sorted((r for r in rows if r["location"] == "US"), key=lambda r: r["date"])
