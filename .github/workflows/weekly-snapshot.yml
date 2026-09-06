@@ -1,0 +1,51 @@
+name: Weekly data snapshot
+
+# Runs itself every Thursday morning. CDC's Socrata dataset refreshes on Wednesdays,
+# so Thursday catches the new week. Nothing here needs a human.
+on:
+  schedule:
+    - cron: "0 12 * * 4"   # Thursdays 12:00 UTC (05:00 Pacific)
+  workflow_dispatch:        # and a manual "Run workflow" button
+
+permissions:
+  contents: write           # needed to commit the snapshot back to the repo
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+        # No pip install step: src/fetch.py is standard library only, on purpose.
+        # A job that runs unattended for months should not depend on anything
+        # that can change underneath it.
+
+      - name: Fetch this week's snapshot
+        id: fetch
+        continue-on-error: true
+        run: python src/fetch.py
+
+      - name: Commit the snapshot
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --staged --quiet; then
+            echo "No new data this week - nothing to commit."
+          else
+            git commit -m "Data snapshot $(date -u +%Y-%m-%d)"
+            git push
+            echo "Snapshot committed."
+          fi
+
+      - name: Fail if a source was unreachable
+        if: steps.fetch.outcome == 'failure'
+        run: |
+          echo "::error::A data source could not be fetched. Run check_data.py locally."
+          echo "This is the alert. Something moved, or a source is down."
+          exit 1

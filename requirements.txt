@@ -1,0 +1,9 @@
+# Analysis / modelling (local work).
+# NOTE: src/fetch.py deliberately uses only the standard library, so the weekly
+# GitHub Action needs none of this and cannot break on a dependency update.
+pandas
+matplotlib
+jupyterlab
+statsmodels
+lightgbm
+duckdb
