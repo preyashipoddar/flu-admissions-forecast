@@ -99,20 +99,38 @@ def fetch_soda(stamp):
     }
 
 
+HEADER = (
+    "# Vintage log\n\n"
+    "One row per weekly run. Each row is the data **as published that week** --\n"
+    "later revisions do not change earlier rows. That is the point.\n\n"
+    "| Run date | FluSight latest week | US flu adm | CDC SODA latest week "
+    "| US flu adm | Hospitals reporting |\n"
+    "|---|---|---|---|---|---|\n"
+)
+
+
 def append_log(stamp, fs, sd):
-    """One human-readable row per run. Makes `git log` on this repo legible."""
-    new = not os.path.exists(LOG)
-    with open(LOG, "a") as f:
-        if new:
-            f.write("# Vintage log\n\n")
-            f.write("One row per weekly run. Each row is the data **as published that week** --\n")
-            f.write("later revisions do not change earlier rows. That is the point.\n\n")
-            f.write("| Run date | FluSight latest week | US flu adm | CDC SODA latest week "
-                    "| US flu adm | Hospitals reporting |\n")
-            f.write("|---|---|---|---|---|---|\n")
-        f.write(f"| {stamp} | {fs.get('latest_week')} | {fs.get('latest_us_value')} "
-                f"| {sd.get('latest_week')} | {sd.get('latest_us_flu')} "
-                f"| {sd.get('hospitals_reporting')} |\n")
+    """One row per run date, newest last. Makes `git log` on this repo legible.
+
+    Rewrites rather than appends so that re-running on the same day (the manual
+    "Run workflow" button, or a retry after a failure) replaces that day's row
+    instead of duplicating it.
+    """
+    row = (f"| {stamp} | {fs.get('latest_week')} | {fs.get('latest_us_value')} "
+           f"| {sd.get('latest_week')} | {sd.get('latest_us_flu')} "
+           f"| {sd.get('hospitals_reporting')} |\n")
+
+    rows = {}
+    if os.path.exists(LOG):
+        for line in open(LOG):
+            if line.startswith("| ") and not line.startswith("| Run date"):
+                rows[line.split("|")[1].strip()] = line
+
+    rows[stamp] = row
+    with open(LOG, "w") as f:
+        f.write(HEADER)
+        for key in sorted(rows):
+            f.write(rows[key])
 
 
 def main():
