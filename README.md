@@ -4,10 +4,11 @@ Forecasting weekly hospital admissions for confirmed influenza four weeks ahead,
 prediction intervals, evaluated the way CDC evaluates its own public forecasting challenge — and
 translated into the staffing decision the forecast actually exists to support.
 
-**Status: in progress (October 2026).** Baseline, two models, prediction intervals, calibration and
-a staffing-cost comparison are done and backtested. The weekly data collection is live. Next:
-calibrating by epidemic phase, and a monitoring job. Findings below are current as of the date
-shown and will be updated as they change.
+**Status: in progress (October 2026).** Baseline, two models, prediction intervals, calibration, a
+staffing-cost comparison and a benchmark against CDC's FluSight forecasts are done. The weekly
+data collection is live. Next: the weighted interval score, pooling across states, and a
+monitoring job. Findings below are current as of the date shown and will be updated as they
+change.
 
 ---
 
@@ -25,6 +26,12 @@ shown and will be updated as they change.
   understaffing cost. The model under-forecasts the climb and overshoots when forecasting from
   the top of the curve, so one uncertainty margin for the whole season misplaces it. With about
   two winters of history, that is a lead to confirm, not a final answer.
+- **The turn of the season is not visible four weeks ahead** in the national curve, in
+  state-level data, or in outpatient flu-like illness, and CDC's professional ensemble missed it
+  at one of the three recent peaks.
+- **Against CDC's FluSight ensemble**, SARIMA's 4-week error is about 27% higher, roughly level
+  with CDC's own baseline. Staffing from the ensemble's range would have cost about 19% less,
+  mostly because its range is trustworthy enough to staff above.
 
 ---
 
@@ -133,6 +140,41 @@ By the newsvendor rule that points to the 75th percentile, *if* the percentiles 
   came out cheapest. That was luck: it copied a larger, later season, so it overstaffed. Over both
   winters the plain forecast beats it (1.08M vs 1.23M cost points).
 
+## Benchmarks: can anyone see the turn?
+
+`notebooks/04-benchmarks.ipynb`. Almost all of the 4-week error, and of the staffing cost, sits at
+the turn of the season. Four ways to see it coming were tested:
+
+| Possible warning | Result |
+|---|---|
+| The national curve slowing before a peak | No. The largest overshoots were forecasts made 1–2 weeks before a peak, while weekly growth was still *accelerating*. These peaks arrived at full speed. |
+| States peaking before the nation | No. In complete seasons nearly every state peaked in the same week as the nation, or one week off. No state was early every season. |
+| Outpatient flu-like illness (ILINet) | No. It peaked 0–1 weeks before admissions; seeing a turn 4 weeks ahead would need 3–4. |
+| CDC's FluSight ensemble | Partly. It nailed the February 2025 peak (within 6%), but overshot the January 2026 peak by 138% and undershot in December 2024. |
+
+**Comparison with FluSight** on the 55 flu-season forecast dates both cover (Nov 2024 – May 2026).
+FluSight-ensemble is the median, percentile by percentile, of all submitted forecasts;
+FluSight-baseline carries the latest week forward flat.
+
+| 4 weeks ahead | MAE | Above own 90th percentile | Staffing cost (3:1) |
+|---|---|---|---|
+| FluSight-ensemble | **7,104** | 20% | **807k** (staffing to its 90th percentile) |
+| SARIMA (this project) | 9,765 | 20% | 998k (staffing to its mean) |
+| FluSight-baseline | 10,024 | 24% | 1,153k |
+
+- **Everyone underestimates upside risk.** Reality beat the 90th percentile about 20% of the time
+  for both the ensemble and SARIMA, against 10% promised. The ensemble's misses are almost all on
+  the high side.
+- **The newsvendor rule holds once miscalibration is accounted for.** The ensemble's "90th
+  percentile" was short 24% of weeks, so it behaved like an honest 75th, and it was the cheapest
+  plan, as the rule predicts for a 3:1 cost ratio.
+- **Averaging SARIMA with a flat forecast improved 4-week error by only 3%.** Both see the same
+  national series, so they miss in the same weeks. The ensemble's advantage comes from members
+  that see *different* data.
+- **Caveat:** FluSight teams forecast in real time from data later revised (often upward); this
+  backtest uses the final data. The comparison is tilted in SARIMA's favour, and real-time
+  revisions may explain why the ensemble's range sits low.
+
 ---
 
 ## Data
@@ -199,7 +241,8 @@ Scored the way CDC scores FluSight, so the results are comparable to real submis
 - **Weighted interval score (WIS)** alongside MAE. WIS grades the *interval*, not the point
   estimate. *(not yet)*
 - **Benchmarks**: `FluSight-baseline` (CDC's official baseline) and `FluSight-ensemble`, both
-  published in the hub alongside 94 other models. *(not yet)*
+  published in the hub alongside 94 other models. *(done: accuracy, interval coverage and
+  staffing cost on 55 flu-season dates)*
 
 ## Why the interval is the point
 
@@ -219,6 +262,7 @@ src/check_data.py                      data availability check
 notebooks/01-baseline.ipynb            seasonal naive baseline
 notebooks/02-sarima-holtwinters.ipynb  rolling-origin backtest of both models
 notebooks/03-intervals.ipynb           intervals, calibration, staffing decision
+notebooks/04-benchmarks.ipynb          turn-of-season checks, FluSight comparison
 data/snapshots/                        dated vintages, committed weekly
 data/vintages.md                       one row per run
 ```
@@ -231,5 +275,7 @@ data/vintages.md                       one row per run
 - **The backtest uses data as currently published**, not as known on each forecast date. The
   vintage archive started in September 2026, so it can't yet support a fully as-of backtest.
 - **The 3:1 cost ratio is an assumption**, not a sourced figure.
+- **The state and ILINet checks compare peak weeks only**, over four seasons, one of them
+  double-peaked. They show no usable early warning in this data, not that none exists.
 - The source disagreement above is **open, not solved**.
 - Nothing here is clinical experience or a substitute for it.
