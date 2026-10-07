@@ -5,8 +5,9 @@ prediction intervals, evaluated the way CDC evaluates its own public forecasting
 translated into the staffing decision the forecast actually exists to support.
 
 **Status: in progress (October 2026).** Baseline, two models, prediction intervals, calibration, a
-staffing-cost comparison and a benchmark against CDC's FluSight forecasts are done. The weekly
-data collection is live. Next: the weighted interval score, pooling across states, and a
+staffing-cost comparison, a benchmark against CDC's FluSight forecasts scored with CDC's weighted
+interval score, and a model pooled across all 53 locations are done. The weekly data collection
+is live. Next: one declared experiment on the pooled model (flu-season-only training), and a
 monitoring job. Findings below are current as of the date shown and will be updated as they
 change.
 
@@ -30,8 +31,12 @@ change.
   state-level data, or in outpatient flu-like illness, and CDC's professional ensemble missed it
   at one of the three recent peaks.
 - **Against CDC's FluSight ensemble**, SARIMA's 4-week error is about 27% higher, roughly level
-  with CDC's own baseline. Staffing from the ensemble's range would have cost about 19% less,
-  mostly because its range is trustworthy enough to staff above.
+  with CDC's own baseline (relative WIS 0.99). Staffing from the ensemble's range would have cost
+  about 19% less, mostly because its range is trustworthy enough to staff above.
+- **Pooling across all 53 locations nearly closes the gap.** A single linear regression shared
+  across states reaches a 4-week relative WIS of **0.67**, against **0.64** for the FluSight
+  ensemble, with a more honest 80% range (84% coverage vs 77%). It still trails the ensemble for
+  staffing: its forecasts run low in flu season, and at a 3:1 cost shortfalls dominate.
 
 ---
 
@@ -175,6 +180,40 @@ FluSight-baseline carries the latest week forward flat.
   backtest uses the final data. The comparison is tilted in SARIMA's favour, and real-time
   revisions may explain why the ensemble's range sits low.
 
+## Pooling across states
+
+`notebooks/05-pooled.ipynb`. SARIMA learns from one curve, about four seasons. The FluSight file
+has 53: every state, DC, Puerto Rico and the nation. The pooled model learns from all of them.
+
+- **Same scale for every location:** admissions per 100,000 people, then a fourth root, which
+  compresses large values more gently than a log.
+- **One linear regression per horizon, shared by all locations:** inputs are the last 6 weekly
+  changes and the current level; the target is the change *h* weeks ahead. The nation is
+  forecast with the shared coefficients and its own recent changes.
+- **Range from past errors:** the regression's errors across all locations, about 7,000 at each
+  forecast date, give the 23 percentiles.
+- **One design, run once.** These choices follow the published AR component of UMass's
+  `flusion` model, were fixed before evaluation, and were not tuned on these dates.
+
+Scored with CDC's **weighted interval score (WIS)**, which penalises every percentile of the
+forecast, not just the middle; *relative* WIS divides by FluSight-baseline's, so below 1 beats it.
+
+| 4 weeks ahead, 55 flu-season dates | MAE | Relative WIS | 80% range inside / above q90 | Best staffing cost (3:1) |
+|---|---|---|---|---|
+| FluSight-ensemble | **7,104** | **0.64** | 77% / 20% | **807k** |
+| Pooled (this project) | 7,859 | 0.67 | **84% / 14%** | 932k |
+| SARIMA | 9,764 | 0.99 | 61% / 20% | 998k |
+| FluSight-baseline | 10,023 | 1.00 | 60% / 24% | 1,153k |
+
+- **By horizon,** SARIMA is best of our models at 1 week (relative WIS 0.77 vs 0.97 for pooled),
+  the pooled model at 2–4 weeks (0.81, 0.72, 0.67).
+- **At the turns,** the pooled model beat the ensemble at both 2025–26 peaks and more than halved
+  SARIMA's worst overshoot. It doesn't predict turns; it learned from about 200 season-curves that
+  fast climbs rarely continue at full speed for four weeks.
+- **The flip side is a low bias in flu season:** its median was short 73% of weeks (an honest
+  median is short 50%). WIS prices errors symmetrically and rates the model highly; the 3:1
+  staffing cost punishes those shortfalls, so the ensemble stays ~15% cheaper.
+
 ---
 
 ## Data
@@ -239,7 +278,7 @@ Scored the way CDC scores FluSight, so the results are comparable to real submis
 - **Coverage check** — what fraction of weeks fell inside the 80% interval, split by season.
   *(done)*
 - **Weighted interval score (WIS)** alongside MAE. WIS grades the *interval*, not the point
-  estimate. *(not yet)*
+  estimate. *(done: relative WIS against FluSight-baseline, all 23 percentiles)*
 - **Benchmarks**: `FluSight-baseline` (CDC's official baseline) and `FluSight-ensemble`, both
   published in the hub alongside 94 other models. *(done: accuracy, interval coverage and
   staffing cost on 55 flu-season dates)*
@@ -263,6 +302,7 @@ notebooks/01-baseline.ipynb            seasonal naive baseline
 notebooks/02-sarima-holtwinters.ipynb  rolling-origin backtest of both models
 notebooks/03-intervals.ipynb           intervals, calibration, staffing decision
 notebooks/04-benchmarks.ipynb          turn-of-season checks, FluSight comparison
+notebooks/05-pooled.ipynb              WIS scoring, model pooled across 53 locations
 data/snapshots/                        dated vintages, committed weekly
 data/vintages.md                       one row per run
 ```
@@ -270,8 +310,8 @@ data/vintages.md                       one row per run
 ## Honest limits
 
 - **Four seasonal cycles is thin** for estimating a 52-week period, and **about two flu seasons**
-  is thin for judging intervals and staffing in flu season. This is an argument for pooling across
-  the 53 locations rather than modelling the national series alone.
+  is thin for judging intervals and staffing in flu season. Pooling across the 53 locations
+  addresses the first; the second still limits every flu-season comparison here (55 dates).
 - **The backtest uses data as currently published**, not as known on each forecast date. The
   vintage archive started in September 2026, so it can't yet support a fully as-of backtest.
 - **The 3:1 cost ratio is an assumption**, not a sourced figure.
