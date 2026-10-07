@@ -19,12 +19,12 @@ shown and will be updated as they change.
 - **SARIMA's own 80% interval looks honest overall (77% coverage) but isn't.** It covers 100% of
   off-season weeks and only 56% of flu-season weeks. In flu season reality beat the 90th
   percentile 23% of the time, against the 10% promised.
-- **Calibrating the interval from the model's own past errors** (no look-ahead) made shortfall
-  rates roughly honest and cut off-season overstaffing cost by about 94%.
+- **Calibrating the interval from the model's own past errors** (no look-ahead) made flu-season
+  shortfall rates roughly honest and cut off-season overstaffing cost by about 94%.
 - **In flu season, the calibrated percentiles still cost more than the plain forecast** at a 3:1
-  understaffing cost. The model under-forecasts the rise and over-forecasts the fall, so one
-  uncertainty margin for the whole season misplaces it. With about two winters of history, that
-  is a lead to confirm, not a final answer.
+  understaffing cost. The model under-forecasts the climb and overshoots when forecasting from
+  the top of the curve, so one uncertainty margin for the whole season misplaces it. With about
+  two winters of history, that is a lead to confirm, not a final answer.
 
 ---
 
@@ -111,11 +111,13 @@ too narrow in flu season. The overall 77% hid both.
 | Approach | Result |
 |---|---|
 | Model log(admissions) | Intervals improve (off-season 89%, flu season 62%), but 4-week MAE rises 30% to 7,780, worse than the baseline: percentage growth compounds, so forecasts made mid-climb overshoot massively at the turn. **Rejected.** |
-| Calibrate from past errors, all seasons pooled | Flu-season weeks above the 90th percentile: 12.5%, vs 17.9% for the raw interval on the same weeks. Off-season still too wide. |
-| Calibrate from past errors, same season only | Off-season fixed (89% coverage). Flu season can't be judged: too few past winters to learn from. |
+| Calibrate from past errors, all seasons pooled | Flu-season weeks above the 90th percentile: 13.7%, vs 17.9% for the raw interval on the same weeks. Off-season still too wide. |
+| Calibrate from past errors, same season only | Off-season coverage 79%, near target, but lopsided: reality beats the 90th percentile 17% of the time. Flu season can't be judged: too few past winters to learn from. |
 
 Calibration multiplies the forecast by quantiles of past `actual ÷ forecast` ratios, using only
-forecasts whose outcome was already known on the forecast date.
+forecasts whose outcome was already known on the forecast date. Before calibrating, the forecast
+is floored at the lowest week seen so far: after steep post-peak falls, 21 of 388 SARIMA
+forecasts went below zero, which made those ratios explode.
 
 **Staffing decision.** Capacity is set 4 weeks ahead. Understaffing costs 3 per admission of
 shortfall, overstaffing 1 per admission of slack (an assumption, and in cost points, not dollars).
@@ -125,11 +127,11 @@ By the newsvendor rule that points to the 75th percentile, *if* the percentiles 
   percentile.
 - **Flu season:** the calibrated 75th and 90th percentiles are short about as often as they
   promise (24% and 14% of weeks), yet both cost more than staffing to the plain forecast. The
-  margins are proportional to the forecast, so the biggest margins land after the peak, on
-  forecasts that are already too high.
+  margins are proportional to the forecast, so the biggest margins land on forecasts made at the
+  top of the curve, which are already too high.
 - On the weeks every strategy could be scored (51, mostly one flu season), "same week last year"
   came out cheapest. That was luck: it copied a larger, later season, so it overstaffed. Over both
-  winters the plain forecast beats it (1.10M vs 1.23M cost points).
+  winters the plain forecast beats it (1.08M vs 1.23M cost points).
 
 ---
 
