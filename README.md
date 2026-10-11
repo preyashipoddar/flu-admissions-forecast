@@ -6,10 +6,16 @@ translated into the staffing decision the forecast actually exists to support.
 
 **Status: in progress (October 2026).** Baseline, two models, prediction intervals, calibration, a
 staffing-cost comparison, a benchmark against CDC's FluSight forecasts scored with CDC's weighted
-interval score, and a model pooled across all 53 locations are done. The weekly data collection
-is live. One pre-declared improvement to the pooled model (flu-season-only training) has been
-tested and reported. Next: a monitoring job. Findings below are current as of the date shown and
-will be updated as they change.
+interval score, a model pooled across all 53 locations, and a real-time re-run of the comparison
+on data as it was first published are done. The weekly data collection is live. Next: a
+monitoring job. Findings below are current as of the date shown and will be updated as they
+change.
+
+**Headline.** Forecasting from the data as it was first published (the same conditions CDC's
+FluSight teams face), a single linear model pooled across 53 locations scores **37% better than
+CDC's FluSight baseline** on CDC's weighted interval score, comes **within 0.04 of CDC's
+multi-team ensemble** (relative WIS 0.63 vs 0.59), and **ties it on the staffing decision** it
+supports, with a more honest uncertainty range.
 
 ---
 
@@ -38,9 +44,12 @@ will be updated as they change.
   ensemble, with a more honest 80% range (84% coverage vs 77%). It still trails the ensemble for
   staffing: its forecasts run low in flu season, and at a 3:1 cost shortfalls dominate.
 - **Trained on flu-season weeks only** (one change, declared with success criteria before
-  testing), the pooled model **matches the ensemble's relative WIS (0.64)** and its staffing plan
-  comes out about 4% cheaper (777k vs 807k cost points). Given two flu seasons of test data and
-  the ensemble's real-time data disadvantage, that is comparable, not better.
+  testing), the pooled model improves at every horizon and closes most of the remaining gap.
+- **On real-time data** (each forecast made from the first-published version, as the FluSight
+  teams had to), the pooled flu-season model reaches a 4-week relative WIS of **0.63** against
+  **0.59** for the ensemble and **1.00** for CDC's baseline, and **ties the ensemble on staffing
+  cost** (614k vs 619k cost points). Initial reports understate admissions by about 9%
+  nationally, and increasingly so.
 
 ---
 
@@ -181,8 +190,7 @@ FluSight-baseline carries the latest week forward flat.
   national series, so they miss in the same weeks. The ensemble's advantage comes from members
   that see *different* data.
 - **Caveat:** FluSight teams forecast in real time from data later revised (often upward); this
-  backtest uses the final data. The comparison is tilted in SARIMA's favour, and real-time
-  revisions may explain why the ensemble's range sits low.
+  backtest uses the final data. The real-time re-run below measures the effect directly.
 
 ## Pooling across states
 
@@ -201,6 +209,7 @@ has 53: every state, DC, Puerto Rico and the nation. The pooled model learns fro
 
 Scored with CDC's **weighted interval score (WIS)**, which penalises every percentile of the
 forecast, not just the middle; *relative* WIS divides by FluSight-baseline's, so below 1 beats it.
+These figures use today's revised data; the real-time re-run is in the next section.
 
 | 4 weeks ahead, 55 flu-season dates | MAE | Relative WIS | 80% range inside / above q90 | Best staffing cost (3:1) |
 |---|---|---|---|---|
@@ -233,6 +242,41 @@ Relative WIS improved at every horizon (0.79 / 0.74 / 0.68 / 0.64), and the rang
 (82% inside, 14% above q90). The low bias mostly remains: the gain comes from better-placed upper
 percentiles, not from a better middle line (4-week MAE 7,799, barely changed). Summer and flu
 season behave differently, and training on both had blended the two.
+
+## The real-time test: data as it was first published
+
+`notebooks/06-as-of.ipynb`. Every comparison above uses today's data, but public-health data is
+revised after publication, and FluSight teams forecast from the *first-published* numbers.
+CDC's hub keeps every past version of its data (98 versions since September 2023), so the
+backtest was re-run using, for each forecast date, **only the version that existed that day**.
+
+**How much early reports are revised.** The newest week is first reported about **9% low**
+nationally (states about 5%), filling in over the next one to two weeks. The gap is always in the
+same direction and has grown: about 3% in 2023–24, 11% in 2024–25, 12% in 2025–26.
+
+**The fair comparison** — 4 weeks ahead, the same 51 flu-season dates for every model (the other
+4 FluSight dates fall on gaps in CDC's archive):
+
+| 4 weeks ahead, real-time data | MAE | Relative WIS | 80% range inside / above q90 | Best staffing cost (3:1) |
+|---|---|---|---|---|
+| FluSight-ensemble | **5,888** | **0.59** | 78% / 18% | 619k |
+| Pooled, flu-season training (this project) | 6,967 | 0.63 | **82% / 16%** | **614k** |
+| SARIMA (this project) | 8,105 | 0.89 | 59% / 22% | 805k |
+| FluSight-baseline | 8,940 | 1.00 | 59% / 20% | 867k |
+
+- **The pooled model holds up under real-time conditions:** 37% better than CDC's baseline,
+  within 0.04 of the professional ensemble, tied with it on the staffing decision, and with the
+  most honest range.
+- **Real-time data costs it a little:** relative WIS 0.60 → 0.63 against revised data on the same
+  dates, the honest price of starting from under-reported numbers.
+- **SARIMA scores better on real-time data at 4 weeks** (1.04 → 0.89), but worse at 1 week. An
+  under-reported latest week shrinks the most recent jump, which happens to dampen SARIMA's
+  overshoots: an error in the data partly cancelling an error in the model.
+- **Correcting for late reporting** (scaling up the newest weeks by their typical revision,
+  learned only from past versions) sharpens 1-week forecasts (0.95 → 0.90) but leaves 4 weeks
+  unchanged: the 4-week gap is set by the turns of the season, not by reporting delays.
+- **Data quality, found along the way:** CDC's version archive has gaps (no version for four
+  forecast weeks, e.g. Thanksgiving 2025) and one version that repeats every row.
 
 ---
 
@@ -323,6 +367,7 @@ notebooks/02-sarima-holtwinters.ipynb  rolling-origin backtest of both models
 notebooks/03-intervals.ipynb           intervals, calibration, staffing decision
 notebooks/04-benchmarks.ipynb          turn-of-season checks, FluSight comparison
 notebooks/05-pooled.ipynb              WIS scoring, model pooled across 53 locations
+notebooks/06-as-of.ipynb               real-time re-run on first-published data
 data/snapshots/                        dated vintages, committed weekly
 data/vintages.md                       one row per run
 ```
@@ -332,8 +377,9 @@ data/vintages.md                       one row per run
 - **Four seasonal cycles is thin** for estimating a 52-week period, and **about two flu seasons**
   is thin for judging intervals and staffing in flu season. Pooling across the 53 locations
   addresses the first; the second still limits every flu-season comparison here (55 dates).
-- **The backtest uses data as currently published**, not as known on each forecast date. The
-  vintage archive started in September 2026, so it can't yet support a fully as-of backtest.
+- **Notebooks 02–05 use data as currently published.** Notebook 06 re-runs the FluSight
+  comparison on first-published data and supersedes their headline figures; the earlier
+  notebooks' year-round results (e.g. summer coverage) have not been re-run that way.
 - **The 3:1 cost ratio is an assumption**, not a sourced figure.
 - **The state and ILINet checks compare peak weeks only**, over four seasons, one of them
   double-peaked. They show no usable early warning in this data, not that none exists.
