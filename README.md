@@ -7,9 +7,9 @@ translated into the staffing decision the forecast actually exists to support.
 **Status: in progress (October 2026).** Baseline, two models, prediction intervals, calibration, a
 staffing-cost comparison, a benchmark against CDC's FluSight forecasts scored with CDC's weighted
 interval score, and a model pooled across all 53 locations are done. The weekly data collection
-is live. Next: one declared experiment on the pooled model (flu-season-only training), and a
-monitoring job. Findings below are current as of the date shown and will be updated as they
-change.
+is live. One pre-declared improvement to the pooled model (flu-season-only training) has been
+tested and reported. Next: a monitoring job. Findings below are current as of the date shown and
+will be updated as they change.
 
 ---
 
@@ -37,6 +37,10 @@ change.
   across states reaches a 4-week relative WIS of **0.67**, against **0.64** for the FluSight
   ensemble, with a more honest 80% range (84% coverage vs 77%). It still trails the ensemble for
   staffing: its forecasts run low in flu season, and at a 3:1 cost shortfalls dominate.
+- **Trained on flu-season weeks only** (one change, declared with success criteria before
+  testing), the pooled model **matches the ensemble's relative WIS (0.64)** and its staffing plan
+  comes out about 4% cheaper (777k vs 807k cost points). Given two flu seasons of test data and
+  the ensemble's real-time data disadvantage, that is comparable, not better.
 
 ---
 
@@ -200,7 +204,8 @@ forecast, not just the middle; *relative* WIS divides by FluSight-baseline's, so
 
 | 4 weeks ahead, 55 flu-season dates | MAE | Relative WIS | 80% range inside / above q90 | Best staffing cost (3:1) |
 |---|---|---|---|---|
-| FluSight-ensemble | **7,104** | **0.64** | 77% / 20% | **807k** |
+| FluSight-ensemble | **7,104** | **0.64** | 77% / 20% | 807k |
+| Pooled, flu-season training (this project) | 7,799 | **0.64** | 82% / 14% | **777k** |
 | Pooled (this project) | 7,859 | 0.67 | **84% / 14%** | 932k |
 | SARIMA | 9,764 | 0.99 | 61% / 20% | 998k |
 | FluSight-baseline | 10,023 | 1.00 | 60% / 24% | 1,153k |
@@ -213,6 +218,21 @@ forecast, not just the middle; *relative* WIS divides by FluSight-baseline's, so
 - **The flip side is a low bias in flu season:** its median was short 73% of weeks (an honest
   median is short 50%). WIS prices errors symmetrically and rates the model highly; the 3:1
   staffing cost punishes those shortfalls, so the ensemble stays ~15% cheaper.
+
+**Declared experiment: flu-season-only training.** One change, with success criteria written
+down before running: train on examples whose forecast date falls in November–April. All three
+criteria passed:
+
+| Criterion (4 weeks) | Pooled | Flu-season training | Bar |
+|---|---|---|---|
+| Median short | 73% | 69% | closer to 50% (passed only narrowly) |
+| Best staffing cost | 932k | 777k | below 932k |
+| Relative WIS | 0.67 | 0.64 | no worse than 0.67 |
+
+Relative WIS improved at every horizon (0.79 / 0.74 / 0.68 / 0.64), and the range stayed honest
+(82% inside, 14% above q90). The low bias mostly remains: the gain comes from better-placed upper
+percentiles, not from a better middle line (4-week MAE 7,799, barely changed). Summer and flu
+season behave differently, and training on both had blended the two.
 
 ---
 
