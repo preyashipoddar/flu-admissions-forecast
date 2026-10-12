@@ -7,9 +7,9 @@ translated into the staffing decision the forecast actually exists to support.
 **Status: in progress (October 2026).** Baseline, two models, prediction intervals, calibration, a
 staffing-cost comparison, a benchmark against CDC's FluSight forecasts scored with CDC's weighted
 interval score, a model pooled across all 53 locations, and a real-time re-run of the comparison
-on data as it was first published are done. The weekly data collection is live. Next: a
-monitoring job. Findings below are current as of the date shown and will be updated as they
-change.
+on data as it was first published are done. The weekly data collection and a weekly forecast
+monitoring job are live. Findings below are current as of the date shown and will be updated as
+they change.
 
 **Headline.** Forecasting from the data as it was first published (the same conditions CDC's
 FluSight teams face), a single linear model pooled across 53 locations scores **37% better than
@@ -280,6 +280,24 @@ same direction and has grown: about 3% in 2023–24, 11% in 2024–25, 12% in 20
 
 ---
 
+## Weekly monitoring job
+
+Every Thursday, `src/monitor.py` forecasts US flu admissions for the next 1–4 weeks and logs each
+forecast to `data/predictions.csv` before the outcome is known. It then checks earlier forecasts
+against the actual admissions and records the error in `data/scores.csv`. It waits until a week
+is at least two weeks old before scoring it, because first-reported numbers run about 9% low and
+are only nearly complete after one to two weeks. The job raises an alert (the run fails, which
+emails me) if the average error of the last four 4-week-ahead forecasts is worse than simply
+predicting "the same week last year." I compare against that naive forecast rather than a fixed
+number because errors are naturally large in January and small in July: a fixed threshold would
+fire every winter and never catch a broken model in summer.
+
+Running unattended since 12 October 2026 (`.github/workflows/monitor.yml`, Thursdays 14:00 UTC,
+dependencies pinned in `requirements-monitor.txt`). Tests in `tests/` check the scoring rules (no
+lookahead, no double scoring, no scoring before data settles) and the alert in both directions.
+
+---
+
 ## Data
 
 | Source | Role | Coverage |
@@ -362,6 +380,8 @@ where the decision is made.
 ```
 src/fetch.py                           weekly snapshot collector (stdlib only)
 src/check_data.py                      data availability check
+src/monitor.py                         weekly forecast, log, score and drift alert
+tests/                                 tests for the monitoring job
 notebooks/01-baseline.ipynb            seasonal naive baseline
 notebooks/02-sarima-holtwinters.ipynb  rolling-origin backtest of both models
 notebooks/03-intervals.ipynb           intervals, calibration, staffing decision
@@ -370,6 +390,8 @@ notebooks/05-pooled.ipynb              WIS scoring, model pooled across 53 locat
 notebooks/06-as-of.ipynb               real-time re-run on first-published data
 data/snapshots/                        dated vintages, committed weekly
 data/vintages.md                       one row per run
+data/predictions.csv                   every forecast, logged before its outcome
+data/scores.csv                        each forecast scored once its week has settled
 ```
 
 ## Honest limits
