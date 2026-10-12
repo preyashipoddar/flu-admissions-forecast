@@ -1,0 +1,48 @@
+name: Weekly forecast monitor
+
+on:
+  schedule:
+    - cron: "0 14 * * 4"     # Thursdays 14:00 UTC, 2 hours after the collector
+  workflow_dispatch:          # manual "Run workflow" button, for testing
+
+permissions:
+  contents: write             # to commit the logs
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pinned dependencies
+        run: pip install -r requirements-monitor.txt
+
+      - name: Forecast, log, score, check for drift
+        id: monitor
+        continue-on-error: true   # let the logs be committed even when the alert fires
+        run: python src/monitor.py
+
+      - name: Commit the logs
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/predictions.csv
+          git add data/scores.csv 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "Nothing new to commit."
+          else
+            git commit -m "Monitor run $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      - name: Fail if the monitor step failed
+        if: steps.monitor.outcome == 'failure'
+        run: |
+          echo "::error::Monitor step failed: either drift (rolling 4-week MAE no longer beats seasonal naive) or a crash. See the monitor step log."
+          exit 1
