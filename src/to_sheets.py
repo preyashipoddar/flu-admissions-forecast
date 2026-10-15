@@ -4,6 +4,7 @@ Runs after monitor.py in the weekly workflow. Each tab is replaced in full every
 
   status       one row: when the data was updated, latest week, the drift check
   forecast     the latest pooled-model forecast, 1-4 weeks ahead, ten percentiles
+  fan          ready for the fan chart: this season's actuals + the forecast's median and 50%/80% bands
   actuals      weekly US admissions, with season and week-of-season for comparing seasons
   forecast_log every forecast logged so far, both models
   scores       every scored forecast so far
@@ -44,6 +45,17 @@ def build_tables():
     forecast = pd.concat([pd.DataFrame([anchor]), newest[['target_week', 'horizon'] + qcols]], ignore_index=True)
     forecast['made_on'] = newest['made_on'].max()
 
+    # Bands as a lower edge + a width, so Tableau can draw them as stacked areas (lower edge transparent)
+    season_now = actuals.loc[actuals['week'] == latest, 'season'].iloc[0]
+    recent = actuals[actuals['season'] == season_now]
+    fan = pd.concat([
+        pd.DataFrame({'week': recent['week'], 'actual': recent['admissions']}),
+        pd.DataFrame({'week': forecast['target_week'], 'forecast_median': forecast['q50'],
+                      'low_80': forecast['q10'], 'band_80': forecast['q90'] - forecast['q10'],
+                      'low_50': forecast['q25'], 'band_50': forecast['q75'] - forecast['q25']}),
+    ], ignore_index=True)
+    fan['horizon'] = ((fan['week'] - latest) / pd.Timedelta(weeks=1)).astype(int).clip(lower=0)
+
     if os.path.exists(monitor.SCORE_PATH):
         scores = monitor.with_model(pd.read_csv(monitor.SCORE_PATH, parse_dates=['made_on', 'target_week']))
     else:
@@ -63,7 +75,7 @@ def build_tables():
     }])
 
     backtest = pd.read_csv(BACKTEST_PATH)
-    return {'status': status, 'forecast': forecast, 'actuals': actuals,
+    return {'status': status, 'forecast': forecast, 'fan': fan, 'actuals': actuals,
             'forecast_log': log, 'scores': scores, 'backtest': backtest}
 
 def to_values(df):
