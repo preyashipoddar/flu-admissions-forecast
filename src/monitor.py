@@ -161,21 +161,27 @@ import sys
 ALERT_WINDOW = 4          # number of recent 4-week-ahead forecasts to judge
 ALERT_MODEL = 'pooled-flu'   # the model the dashboard shows; SARIMA is still logged and scored
 
-def check_alert(y):
+def alert_status(y):
+    """(number of recent scored 4-week forecasts, model MAE, naive MAE); MAEs are None until there are enough."""
     if not os.path.exists(SCORE_PATH):
-        print('alert check: no scores yet')
-        return
+        return 0, None, None
     s = pd.read_csv(SCORE_PATH, parse_dates=['made_on', 'target_week'])
     if 'model' in s.columns:
         s = s[s['model'] == ALERT_MODEL]
     recent = s[s['horizon'] == 4].sort_values('target_week').tail(ALERT_WINDOW)
     if len(recent) < ALERT_WINDOW:
-        print(f'alert check: only {len(recent)} scored 4-week forecasts, need {ALERT_WINDOW}')
-        return
-
+        return len(recent), None, None
     naive = y.reindex(recent['target_week'] - pd.Timedelta(weeks=52)).values
-    model_mae = recent['abs_error'].mean()
-    naive_mae = np.abs(recent['actual'].values - naive).mean()
+    return len(recent), recent['abs_error'].mean(), np.abs(recent['actual'].values - naive).mean()
+
+def check_alert(y):
+    if not os.path.exists(SCORE_PATH):
+        print('alert check: no scores yet')
+        return
+    n, model_mae, naive_mae = alert_status(y)
+    if model_mae is None:
+        print(f'alert check: only {n} scored 4-week forecasts, need {ALERT_WINDOW}')
+        return
     print(f'alert check: last {ALERT_WINDOW} 4-week forecasts | model MAE {model_mae:,.0f} | naive MAE {naive_mae:,.0f}')
 
     if model_mae > naive_mae:

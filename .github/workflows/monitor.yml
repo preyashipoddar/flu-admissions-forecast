@@ -41,6 +41,13 @@ jobs:
             git push
           fi
 
+      - name: Publish dashboard data to Google Sheets
+        if: always()              # the dashboard should show an alert too
+        run: python src/to_sheets.py
+        env:
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          DASHBOARD_SHEET_ID: ${{ secrets.DASHBOARD_SHEET_ID }}
+
       - name: Fail if the monitor step failed
         if: steps.monitor.outcome == 'failure'
         run: |
