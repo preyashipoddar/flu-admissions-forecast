@@ -64,15 +64,15 @@ def check_predictions(path):
     # uniqueness on (made_on, target_week)
     seen, dupes = set(), []
     for r in rows:
-        k = (r.get("made_on", "").strip(), r.get("target_week", "").strip())
+        k = (r.get("model", "").strip(), r.get("made_on", "").strip(), r.get("target_week", "").strip())
         if k in seen:
             dupes.append(k)
         seen.add(k)
     if dupes:
-        bad(f"{len(dupes)} duplicate (made_on, target_week) rows, e.g. {dupes[0]} "
+        bad(f"{len(dupes)} duplicate (model, made_on, target_week) rows, e.g. {dupes[0]} "
             "-- re-running the job must not append again")
     else:
-        ok("(made_on, target_week) is unique -- job is idempotent")
+        ok("(model, made_on, target_week) is unique -- job is idempotent")
 
     # horizons
     hs = {r.get("horizon", "").strip() for r in rows}
@@ -131,7 +131,7 @@ def check_scores(path, preds):
 
     seen, dupes = set(), []
     for r in rows:
-        k = (r.get("made_on", "").strip(), r.get("target_week", "").strip())
+        k = (r.get("model", "").strip(), r.get("made_on", "").strip(), r.get("target_week", "").strip())
         if k in seen:
             dupes.append(k)
         seen.add(k)
@@ -150,9 +150,10 @@ def check_scores(path, preds):
 
     # scores must trace back to a logged prediction
     if preds:
-        known = {(r.get("made_on", "").strip(), r.get("target_week", "").strip()) for r in preds}
-        orphans = [r for r in rows
-                   if (r.get("made_on", "").strip(), r.get("target_week", "").strip()) not in known]
+        key = lambda r: (r.get("model", "").strip() or "SARIMA", r.get("made_on", "").strip(),
+                         r.get("target_week", "").strip())
+        known = {key(r) for r in preds}
+        orphans = [r for r in rows if key(r) not in known]
         if orphans:
             bad(f"{len(orphans)} scored rows have no matching row in predictions.csv -- "
                 "a score must trace back to a forecast that was logged in advance")
