@@ -38,6 +38,7 @@ jobs:
             echo "Nothing new to commit."
           else
             git commit -m "Monitor run $(date -u +%Y-%m-%d)"
+            git pull --rebase    # main may have moved since checkout (e.g. a re-run of an older run)
             git push
           fi
 

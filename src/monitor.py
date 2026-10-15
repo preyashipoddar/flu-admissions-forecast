@@ -103,7 +103,7 @@ def with_model(df):
 
 def log_predictions(rows):
     if os.path.exists(PRED_PATH):
-        old = with_model(pd.read_csv(PRED_PATH, parse_dates=['made_on', 'target_week']))
+        old = with_model(pd.read_csv(PRED_PATH, parse_dates=['made_on', 'target_week'], float_precision='round_trip'))
     else:
         old = rows.iloc[0:0]                     # an empty table with the same columns
     combined = pd.concat([old, rows])
@@ -120,9 +120,9 @@ def score(y):
         print('scores: no predictions logged yet')
         return
 
-    preds = with_model(pd.read_csv(PRED_PATH, parse_dates=['made_on', 'target_week']))
+    preds = with_model(pd.read_csv(PRED_PATH, parse_dates=['made_on', 'target_week'], float_precision='round_trip'))
     if os.path.exists(SCORE_PATH):
-        done = with_model(pd.read_csv(SCORE_PATH, parse_dates=['made_on', 'target_week']))
+        done = with_model(pd.read_csv(SCORE_PATH, parse_dates=['made_on', 'target_week'], float_precision='round_trip'))
     else:
         done = pd.DataFrame(columns=KEY)
 
@@ -165,7 +165,7 @@ def alert_status(y):
     """(number of recent scored 4-week forecasts, model MAE, naive MAE); MAEs are None until there are enough."""
     if not os.path.exists(SCORE_PATH):
         return 0, None, None
-    s = pd.read_csv(SCORE_PATH, parse_dates=['made_on', 'target_week'])
+    s = pd.read_csv(SCORE_PATH, parse_dates=['made_on', 'target_week'], float_precision='round_trip')
     if 'model' in s.columns:
         s = s[s['model'] == ALERT_MODEL]
     recent = s[s['horizon'] == 4].sort_values('target_week').tail(ALERT_WINDOW)
