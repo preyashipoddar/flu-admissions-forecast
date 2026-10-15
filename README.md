@@ -9,19 +9,21 @@ staffing decision, and run as a monitored weekly job.
 Forecasting from the data **as it was first published** (the same conditions CDC's FluSight
 teams face), a linear model pooled across 53 states and territories:
 
-| 4 weeks ahead, 51 flu-season dates, real-time data | Relative WIS ↓ | MAE | 80% interval coverage | Staffing cost (3:1) |
+| 4 weeks ahead, 51 flu-season dates, real-time data | Relative WIS ↓ | MAE | 80% interval coverage | Staffing cost vs baseline ↓ |
 |---|---|---|---|---|
-| CDC FluSight ensemble (dozens of teams) | **0.59** | **5,888** | 78% | 619k |
-| **Pooled model (this project)** | 0.63 | 6,967 | **82%** | **614k** |
-| SARIMA (this project) | 0.89 | 8,105 | 59% | 805k |
-| CDC FluSight baseline | 1.00 | 8,940 | 59% | 867k |
+| CDC FluSight ensemble (dozens of teams) | **0.59** | **5,888** | 78% | **54–69%** |
+| **Pooled model (this project)** | 0.63 | 6,967 | **82%** | 65–77% |
+| SARIMA (this project) | 0.89 | 8,105 | 59% | 88–94% |
+| CDC FluSight baseline | 1.00 | 8,940 | 59% | 100% |
 
 - **37% better than CDC's baseline** on CDC's weighted interval score (WIS), and **within 0.04
   of CDC's multi-team ensemble**.
-- **Ties the ensemble on the staffing decision** it supports, with the most honest uncertainty
-  range of the four.
-- *Relative WIS* = WIS ÷ FluSight-baseline's WIS; below 1 beats the baseline. Staffing cost is in
-  cost points with an assumed 3:1 understaffing-to-overstaffing ratio.
+- **Cuts simulated staffing cost by 23–35% against CDC's baseline** at every cost ratio supported
+  by nurse wage data, with the most honest uncertainty range of the four. The ensemble stays ahead
+  on staffing (31–46%).
+- *Relative WIS* = WIS ÷ FluSight-baseline's WIS; below 1 beats the baseline. Staffing cost ranges
+  over four understaffing-to-overstaffing cost ratios (0.5:1 to 3:1, see below), each model
+  staffing to the percentile that ratio implies, fixed in advance.
 
 ## Key findings
 
@@ -35,6 +37,10 @@ teams face), a linear model pooled across 53 states and territories:
   of 4 national ones teaches the model that fast climbs rarely continue at full speed.
 - **Initial CDC reports understate admissions by ~9% nationally**, a gap that grew from 3% to 12%
   over three seasons. Correcting for it helps 1-week forecasts, not 4-week ones.
+- **On wages alone, a shortfall costs less than an idle shift.** Overtime and agency premiums
+  (0.5–0.7× a shift) are smaller than a wasted planned shift (1×), so the cheapest plan staffs
+  *below* the median forecast. Staffing above it pays only when agency prices spike or non-wage
+  costs are counted.
 - **Data-quality issues in public CDC data:** gaps and a fully duplicated release in CDC's version
   archive, and a 3–17% disagreement between two CDC sources (not blended for that reason).
 
@@ -96,7 +102,9 @@ versions) and [CDC Socrata `vdzy-6i9v`](https://data.cdc.gov/d/vdzy-6i9v).
 
 - **Two flu seasons of test data** (51–55 forecast dates). Results are comparable to the
   professionals', not proof of being better.
-- **The 3:1 staffing cost ratio is assumed**, not sourced; sourced costs are next.
+- **Staffing costs are wages only, from published averages** (overtime 1.5×; agency ~1.7× in
+  2025 per a staffing-firm survey, ~3.4× at the 2022 peak per Kaufman Hall). Missed care and burnout are not priced, and
+  costs are in admission-weeks, not converted to beds or shifts.
 - **The state and ILINet checks compare peak weeks only**, over four seasons.
 - Notebooks 02–05 use revised data; notebook 06 supersedes their headline FluSight figures.
 - Nothing here is clinical experience or a substitute for it.
