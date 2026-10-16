@@ -3,6 +3,7 @@
 Runs after monitor.py in the weekly workflow. Each tab is replaced in full every run:
 
   status       one row: when the data was updated, latest week, the drift check
+  headline     one row: the numbers and sentences for the text above the fan chart
   forecast     the latest pooled-model forecast, 1-4 weeks ahead, ten percentiles
   fan          ready for the fan chart: this season's actuals, the forecast median, and the 50%/80% bands as stackable layers
   actuals      weekly US admissions, with season and week-of-season for comparing seasons
@@ -19,6 +20,13 @@ import gspread
 import monitor
 
 BACKTEST_PATH = 'data/dashboard/backtest_us.csv'
+
+# Admissions -> nurses on duty at any moment (approximate, national averages):
+#   occupied beds = weekly admissions x average stay (4.5 days) / 7
+#   nurses = beds x (83% ward at 1 nurse : 5 patients + 17% ICU at 1 : 2)
+AVG_STAY_DAYS = 4.5
+ICU_SHARE = 0.17
+NURSES_PER_ADMISSION = AVG_STAY_DAYS / 7 * ((1 - ICU_SHARE) / 5 + ICU_SHARE / 2)
 
 def season_columns(dates):
     """Season label ('2025-26') and weeks since the season started (first Saturday on or after 1 Aug)."""
@@ -77,8 +85,30 @@ def build_tables():
         'monitor_status': state, 'model_mae_last4': model_mae, 'naive_mae_last4': naive_mae,
     }])
 
+    h4 = forecast[forecast['horizon'] == 4].iloc[0]
+    change = y[latest] / y[latest - pd.Timedelta(weeks=1)] - 1
+    fmt = lambda v: f'{v:,.0f}'
+    headline = pd.DataFrame([{
+        'data_through': latest,
+        'latest_admissions': y[latest],
+        'change_vs_prior_week': round(change, 3),
+        'forecast_week': h4['target_week'],
+        'forecast_4wk_median': h4['q50'],
+        'range50_low': h4['q25'], 'range50_high': h4['q75'],
+        'range80_low': h4['q10'], 'range80_high': h4['q90'],
+        'nurses_now': y[latest] * NURSES_PER_ADMISSION,
+        'nurses_4wk_median': h4['q50'] * NURSES_PER_ADMISSION,
+        'headline': (f"Flu admissions {'rose' if change >= 0 else 'fell'} {abs(change):.0%} last week to "
+                     f"{fmt(y[latest])}. Expected ~{fmt(h4['q50'])} a week by "
+                     f"{h4['target_week']:%-d %b} (50% range {fmt(h4['q25'])}-{fmt(h4['q75'])})."),
+        'nurses_text': (f"~{fmt(h4['q50'] * NURSES_PER_ADMISSION)} nurses on duty at any time for flu patients "
+                        f"nationally by {h4['target_week']:%-d %b}, up from ~{fmt(y[latest] * NURSES_PER_ADMISSION)} now"),
+        'caveat': ('The latest week is usually revised up ~9% as late reports arrive. Nurse figures assume a '
+                   '4.5-day average stay, 17% ICU, and 1:5 ward / 1:2 ICU ratios.'),
+    }])
+
     backtest = pd.read_csv(BACKTEST_PATH)
-    return {'status': status, 'forecast': forecast, 'fan': fan, 'actuals': actuals,
+    return {'status': status, 'headline': headline, 'forecast': forecast, 'fan': fan, 'actuals': actuals,
             'forecast_log': log, 'scores': scores, 'backtest': backtest}
 
 def to_values(df):
@@ -90,6 +120,7 @@ def to_values(df):
         elif pd.api.types.is_float_dtype(out[c]):
             out[c] = out[c].round(2)
     out = out.astype(object).where(out.notna(), '')
+    out = out.map(lambda v: v.strftime('%Y-%m-%d') if isinstance(v, pd.Timestamp) else v)
     return [list(out.columns)] + out.values.tolist()
 
 def publish(tables, sheet):
