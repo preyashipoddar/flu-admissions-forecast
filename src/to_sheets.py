@@ -10,6 +10,7 @@ Runs after monitor.py in the weekly workflow. Each tab is replaced in full every
   forecast_log every forecast logged so far, both models
   scores       every scored forecast so far
   backtest     static: the real-time backtest (notebook 06), pooled model vs CDC ensemble and baseline
+  hedgehog     every past pooled-model forecast (median, 0-4 weeks), each starting from the actual on its date
 
 Needs GCP_SA_KEY (service-account JSON) and DASHBOARD_SHEET_ID in the environment.
 """
@@ -107,9 +108,18 @@ def build_tables():
                    '4.5-day average stay, 17% ICU, and 1:5 ward / 1:2 ICU ratios.'),
     }])
 
-    backtest = pd.read_csv(BACKTEST_PATH)
+    backtest = pd.read_csv(BACKTEST_PATH, parse_dates=['cutoff', 'target_week'])
+    med = backtest[(backtest['model'] == 'This project (pooled model)') & (backtest['tau'] == 0.5)]
+    start = pd.DataFrame({'cutoff': med['cutoff'].unique()})
+    start = start.assign(target_week=start['cutoff'], horizon=0, value=y.reindex(start['cutoff']).values)
+    hedgehog = (pd.concat([start, med[['cutoff', 'target_week', 'horizon', 'value']]])
+                  .rename(columns={'cutoff': 'forecast_date', 'target_week': 'week', 'value': 'forecast'})
+                  .sort_values(['forecast_date', 'horizon']).reset_index(drop=True))
+    hedgehog['horizon'] = hedgehog['horizon'].astype(int)
+    hedgehog['actual'] = y.reindex(hedgehog['week']).values
+
     return {'status': status, 'headline': headline, 'forecast': forecast, 'fan': fan, 'actuals': actuals,
-            'forecast_log': log, 'scores': scores, 'backtest': backtest}
+            'forecast_log': log, 'scores': scores, 'backtest': backtest, 'hedgehog': hedgehog}
 
 def to_values(df):
     """A DataFrame as a list of rows for the Sheets API: dates as YYYY-MM-DD, blanks for missing values."""
