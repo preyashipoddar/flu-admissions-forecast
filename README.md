@@ -4,6 +4,11 @@ Four-week-ahead forecasts of weekly flu hospital admissions, with calibrated unc
 evaluated the way CDC evaluates its own forecasting challenge (FluSight), translated into a
 staffing decision, and run as a monitored weekly job.
 
+**Live dashboard: [Flu Staffing Outlook: US](https://public.tableau.com/views/FluStaffingOutlookUS/FluStaffingOutlookUS)**
+(Tableau Public). It shows this week's forecast with its 50%/80% ranges and an approximate nurse
+count, every past forecast against what happened, staffing cost under a cost-ratio slider, and the
+monitor's status. It updates itself each week from the job below.
+
 ## Headline
 
 Forecasting from the data **as it was first published** (the same conditions CDC's FluSight
@@ -66,8 +71,9 @@ pooled past errors. Design follows the AR component of UMass's `flusion` FluSigh
 
 ## Weekly monitoring job
 
-Every Thursday, `src/monitor.py` forecasts US flu admissions for the next 1–4 weeks and logs each
-forecast to `data/predictions.csv` before the outcome is known. It then scores earlier forecasts
+Every Thursday, `src/monitor.py` forecasts US flu admissions for the next 1–4 weeks with the pooled
+model (and SARIMA, for comparison) and logs each forecast to `data/predictions.csv` before the
+outcome is known. It then scores earlier forecasts
 against actual admissions in `data/scores.csv`, once a week is at least two weeks old (first
 reports run ~9% low). The run fails, and emails an alert, if the average error of the last four
 4-week-ahead forecasts is worse than "same week last year" on the same weeks. A fixed threshold
@@ -78,6 +84,10 @@ Running unattended since 12 October 2026 (`.github/workflows/monitor.yml`). Test
 cover no lookahead, no double scoring, no scoring before data settles, and the alert in both
 directions. Dependencies are pinned in `requirements-monitor.txt`.
 
+After each run, `src/to_sheets.py` publishes the dashboard's tables to a Google Sheet through a
+service account, and Tableau Public re-reads the Sheet daily, so the dashboard needs no manual
+steps.
+
 A second job (`weekly-snapshot.yml`, standard library only) archives every CDC data release to
 `data/snapshots/`, building a record of revisions.
 
@@ -86,11 +96,13 @@ A second job (`weekly-snapshot.yml`, standard library only) archives every CDC d
 ```
 notebooks/                 analysis, 01-06 in order
 src/monitor.py             weekly forecast, log, score and drift alert
+src/to_sheets.py           publishes dashboard tables to Google Sheets for Tableau Public
 src/fetch.py               weekly data snapshot collector
 src/check_data.py          data availability check
 tests/                     tests for the monitoring job
 data/predictions.csv       every forecast, logged before its outcome
 data/scores.csv            each forecast scored once its week has settled
+data/dashboard/            static backtest table behind the dashboard's evaluation charts
 data/snapshots/            dated data vintages
 ```
 
