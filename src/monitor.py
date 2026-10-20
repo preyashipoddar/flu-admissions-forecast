@@ -1,3 +1,25 @@
+"""Weekly monitoring job for a US influenza hospital-admissions forecast.
+
+Run every Thursday by .github/workflows/monitor.yml. It fits a SARIMA and a pooled
+model, logs every 1-4 week forecast BEFORE the outcome is known, scores a forecast
+only once the underlying data has settled, and exits non-zero when the model stops
+beating a seasonal-naive baseline (the same week one year earlier).
+
+Four things it deliberately refuses to do, so that the track record cannot flatter
+the model:
+  - score a target week less than SETTLE_WEEKS old, because first reports run about
+    9 percent low and would make every forecast look high
+  - score a forecast whose made_on is not strictly before its target_week
+  - write a score row where the actual value is missing
+  - re-score a row that has already been scored
+
+tests/test_score.py exercises the first three rules plus double-scoring,
+tests/test_alert.py covers the alert, and tests/acceptance_monitoring.py checks the
+files this job produces against the spec without reading this source.
+
+Repo: github.com/preyashipoddar/flu-admissions-forecast
+"""
+
 import warnings
 warnings.filterwarnings('ignore')            # SARIMA convergence warnings; counted explicitly below instead
 
