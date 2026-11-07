@@ -190,7 +190,10 @@ def alert_status(y):
     s = pd.read_csv(SCORE_PATH, parse_dates=['made_on', 'target_week'], float_precision='round_trip')
     if 'model' in s.columns:
         s = s[s['model'] == ALERT_MODEL]
-    recent = s[s['horizon'] == 4].sort_values('target_week').tail(ALERT_WINDOW)
+    # one forecast per target week: a manual re-run logs the same week again, which would
+    # otherwise count twice; keep the latest forecast made for each week
+    h4 = s[s['horizon'] == 4].sort_values('made_on').drop_duplicates('target_week', keep='last')
+    recent = h4.sort_values('target_week').tail(ALERT_WINDOW)
     if len(recent) < ALERT_WINDOW:
         return len(recent), None, None
     naive = y.reindex(recent['target_week'] - pd.Timedelta(weeks=52)).values
